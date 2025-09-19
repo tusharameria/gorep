@@ -1,36 +1,50 @@
 package main
 
 import (
-	"flag"
+	"bufio"
 	"fmt"
 	"os"
+
+	"github.com/tusharameria/gorep/services"
 )
 
-const ageMessage = "Should be a positive integer"
-const nameMessage = "Name cannot be empty"
-
-type Person struct {
-	Age  int
-	Name string
-}
-
 func main() {
-	var person Person
+	person := services.NewPerson()
 
-	flag.IntVar(&person.Age, "age", -1, ageMessage)
-	flag.StringVar(&person.Name, "name", "", nameMessage)
-
-	flag.Parse()
-
-	if person.Age <= 0 {
-		fmt.Printf("%s\n", ageMessage)
+	if err := person.ParseFlags(); err != nil {
+		fmt.Printf("%s\n", err)
 		os.Exit(1)
 	}
 
-	if person.Name == "" {
-		fmt.Printf("%s\n", nameMessage)
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println("Enter new name if you want to change :")
+	text, err := reader.ReadString('\n')
+	if err != nil {
+		fmt.Printf("%s\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("You entered : %s", text)
+
+	if err := person.UpdateName(text); err != nil {
+		fmt.Printf("%s\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("%+v\n", person)
+	scanner := bufio.NewScanner(os.Stdin)
+
+	i := 0
+	for scanner.Scan() {
+		text := scanner.Text()
+		if text == "exit" {
+			break
+		}
+		fmt.Printf("%d : %s\n", i, text)
+		i++
+	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Printf("%s\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("Program Completed!!!")
 }
