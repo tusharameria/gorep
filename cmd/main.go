@@ -36,7 +36,7 @@ func main() {
 				searchQuery = strings.ToLower(searchQuery)
 			}
 			if strings.Contains(textTest, searchQuery) {
-				fmt.Printf("%s %d %s\n", fileName, n, text)
+				fmt.Printf("%s:%d %s\n", fileName, n, text)
 			}
 			n++
 		}
