@@ -7,15 +7,19 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 func main() {
+	startTime := time.Now()
 	caseInsensetive := false
 	isRecursive := false
 	totalLines := false
 	totalFiles := false
+	showTime := false
 	flag.BoolVar(&caseInsensetive, "i", caseInsensetive, "True or False")
 	flag.BoolVar(&isRecursive, "r", isRecursive, "True or False")
+	flag.BoolVar(&showTime, "t", showTime, "True or False")
 	flag.BoolVar(&totalLines, "tl", totalLines, "True or False")
 	flag.BoolVar(&totalFiles, "tf", totalFiles, "True or False")
 	flag.Parse()
@@ -107,6 +111,14 @@ func main() {
 	}
 	if totalFiles {
 		fmt.Printf("Total number of files matched : %d\n", totalNoFiles)
+	}
+	if showTime {
+		timeinMs := time.Since(startTime).Milliseconds()
+		if timeinMs < 1000 {
+			fmt.Printf("Time taken : %dms\n", timeinMs)
+		} else {
+			fmt.Printf("Time taken : %fs\n", float64(timeinMs)/1000)
+		}
 	}
 }
 
