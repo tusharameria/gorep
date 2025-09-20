@@ -2,49 +2,42 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"os"
-
-	"github.com/tusharameria/gorep/services"
+	"strings"
 )
 
 func main() {
-	person := services.NewPerson()
+	fileName := ""
+	caseInsensetive := false
+	flag.BoolVar(&caseInsensetive, "i", caseInsensetive, "True or False")
+	flag.StringVar(&fileName, "f", fileName, "Need valid file address")
+	flag.Parse()
+	args := flag.Args()
 
-	if err := person.ParseFlags(); err != nil {
-		fmt.Printf("%s\n", err)
-		os.Exit(1)
-	}
+	searchQuery := args[0]
 
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Enter new name if you want to change :")
-	text, err := reader.ReadString('\n')
+	file, err := os.Open(fileName)
 	if err != nil {
 		fmt.Printf("%s\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("You entered : %s", text)
+	defer file.Close()
 
-	if err := person.UpdateName(text); err != nil {
-		fmt.Printf("%s\n", err)
-		os.Exit(1)
-	}
+	scanner := bufio.NewScanner(file)
 
-	scanner := bufio.NewScanner(os.Stdin)
-
-	i := 0
+	i := 1
 	for scanner.Scan() {
 		text := scanner.Text()
-		if text == "exit" {
-			break
+		textTest := text
+		if caseInsensetive {
+			textTest = strings.ToLower(text)
+			searchQuery = strings.ToLower(searchQuery)
 		}
-		fmt.Printf("%d : %s\n", i, text)
+		if strings.Contains(textTest, searchQuery) {
+			fmt.Printf("%d %s\n", i, text)
+		}
 		i++
 	}
-
-	if err := scanner.Err(); err != nil {
-		fmt.Printf("%s\n", err)
-		os.Exit(1)
-	}
-	fmt.Println("Program Completed!!!")
 }
