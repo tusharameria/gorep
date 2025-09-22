@@ -28,6 +28,8 @@ func main() {
 	searchQuery := args[0]
 	pathNames := args[1:]
 
+	lines := make(chan string)
+
 	totalNoLines := 0
 	totalNoFiles := 0
 
@@ -51,15 +53,17 @@ func main() {
 
 			n := 1
 			found := false
+			if caseInsensetive {
+				searchQuery = strings.ToLower(searchQuery)
+			}
 			for scanner.Scan() {
 				text := scanner.Text()
 				textTest := text
 				if caseInsensetive {
 					textTest = strings.ToLower(text)
-					searchQuery = strings.ToLower(searchQuery)
 				}
 				if strings.Contains(textTest, searchQuery) {
-					fmt.Printf("%s:%d %s\n", pathName, n, text)
+					lines <- fmt.Sprintf("%s:%d:%s\n", pathName, n, text)
 					if totalLines {
 						totalNoLines++
 					}
@@ -102,8 +106,15 @@ func main() {
 		}
 	}
 
-	for _, pathName := range pathNames {
-		recursive(pathName, true)
+	go func() {
+		for _, pathName := range pathNames {
+			recursive(pathName, true)
+		}
+		close(lines)
+	}()
+
+	for line := range lines {
+		fmt.Printf("%s", line)
 	}
 
 	if totalLines {
