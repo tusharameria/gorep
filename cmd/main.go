@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -28,10 +29,12 @@ func main() {
 	searchQuery := args[0]
 	pathNames := args[1:]
 
-	lines := make(chan string)
+	lineSlices := make(chan []string)
 
 	totalNoLines := 0
 	totalNoFiles := 0
+
+	wg := sync.WaitGroup{}
 
 	var recursive func(string, bool)
 	recursive = func(pathName string, firstLayer bool) {
@@ -42,48 +45,14 @@ func main() {
 		}
 
 		if isFile {
-			file, err := os.Open(pathName)
-			if err != nil {
-				fmt.Printf("%s\n", err)
-				os.Exit(1)
-			}
-			defer file.Close()
-
-			scanner := bufio.NewScanner(file)
-
-			n := 1
-			found := false
-			if caseInsensetive {
-				searchQuery = strings.ToLower(searchQuery)
-			}
-			for scanner.Scan() {
-				text := scanner.Text()
-				textTest := text
-				if caseInsensetive {
-					textTest = strings.ToLower(text)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if err := ProcessFile(pathName, searchQuery, caseInsensetive, totalLines, totalFiles, &totalNoLines, &totalNoFiles, lineSlices); err != nil {
+					fmt.Printf("%s\n", err)
+					os.Exit(1)
 				}
-				if strings.Contains(textTest, searchQuery) {
-					lines <- fmt.Sprintf("%s:%d:%s\n", pathName, n, text)
-					if totalLines {
-						totalNoLines++
-					}
-					found = true
-				}
-				n++
-			}
-			if found && totalFiles {
-				totalNoFiles++
-			}
-
-			if err := scanner.Err(); err != nil {
-				fmt.Printf("%s\n", err)
-				os.Exit(1)
-			}
-
-			if err := file.Close(); err != nil {
-				fmt.Printf("%s\n", err)
-				os.Exit(1)
-			}
+			}()
 		} else {
 			if firstLayer || isRecursive {
 				isDir, err := IsDir(pathName)
@@ -110,19 +79,24 @@ func main() {
 		for _, pathName := range pathNames {
 			recursive(pathName, true)
 		}
-		close(lines)
+		wg.Wait()
+		close(lineSlices)
 	}()
 
-	for line := range lines {
-		fmt.Printf("%s", line)
+	for lines := range lineSlices {
+		for _, line := range lines {
+			fmt.Printf("%s", line)
+		}
 	}
 
 	if totalLines {
 		fmt.Printf("Total number of lines matched : %d\n", totalNoLines)
 	}
+
 	if totalFiles {
 		fmt.Printf("Total number of files matched : %d\n", totalNoFiles)
 	}
+
 	if showTime {
 		timeinMs := time.Since(startTime).Milliseconds()
 		if timeinMs < 1000 {
@@ -131,6 +105,52 @@ func main() {
 			fmt.Printf("Time taken : %fs\n", float64(timeinMs)/1000)
 		}
 	}
+}
+
+func ProcessFile(pathName, searchQuery string, caseInsensetive, totalLines, totalFiles bool, totalNoLines, totalNoFiles *int, lineSlices chan<- []string) error {
+	file, err := os.Open(pathName)
+	if err != nil {
+		fmt.Printf("%s\n", err)
+		os.Exit(1)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	n := 1
+	found := false
+	if caseInsensetive {
+		searchQuery = strings.ToLower(searchQuery)
+	}
+
+	fileLines := []string{}
+	for scanner.Scan() {
+		text := scanner.Text()
+		textTest := text
+		if caseInsensetive {
+			textTest = strings.ToLower(text)
+		}
+		if strings.Contains(textTest, searchQuery) {
+			fileLines = append(fileLines, fmt.Sprintf("%s:%d:%s\n", pathName, n, text))
+			if totalLines {
+				*totalNoLines++
+			}
+			found = true
+		}
+		n++
+	}
+
+	lineSlices <- fileLines
+
+	if found && totalFiles {
+		*totalNoFiles++
+	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Printf("%s\n", err)
+		os.Exit(1)
+	}
+	return nil
 }
 
 func IsDir(path string) (bool, error) {
